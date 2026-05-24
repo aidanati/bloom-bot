@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bloom</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2;
+    --warm-white: #FDF9F5;
+    --sand: #F0EBE1;
+    --sand-dark: #E4DDD1;
+    --brown-light: #C9BBA8;
+    --brown: #8B7355;
+    --brown-deep: #5C4A35;
+    --ink: #2D2418;
+    --ink-soft: #6B5A47;
+    --ink-muted: #A8957E;
+    --green: #6B9E78;
+    --green-light: #E8F2EA;
+    --green-deep: #3D6B47;
+    --blue: #7BA5C4;
+    --blue-light: #EAF2F8;
+    --rose: #C47B8A;
+    --rose-light: #F5E8EB;
+    --amber: #C49A4A;
+    --amber-light: #FBF2E0;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --shadow: 0 2px 12px rgba(92,74,53,0.08);
+    --shadow-lg: 0 8px 32px rgba(92,74,53,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ─── App shell ─── */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ─── Top bar ─── */
+  .topbar {
+    padding: 16px 20px 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    animation: fadeDown .5s ease both;
+  }
+  .topbar-left {}
+  .topbar-greeting {
+    font-family: 'Instrument Serif', serif;
+    font-size: 26px; color: var(--ink); line-height: 1.1;
+  }
+  .topbar-date { font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+  .streak-badge {
+    background: var(--amber-light);
+    border: 1px solid #EDD898;
+    border-radius: 30px;
+    padding: 6px 12px;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 500; color: var(--amber);
+    flex-shrink: 0;
+  }
+  .streak-fire { font-size: 14px; }
+
+  /* ─── Scroll content ─── */
+  .scroll-area {
+    flex: 1;
+    padding: 16px 16px 100px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow-y: auto;
+  }
+
+  /* ─── Cards ─── */
+  .card {
+    background: var(--warm-white);
+    border: 1px solid var(--sand-dark);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    animation: fadeUp .45s ease both;
+  }
+  .card-label {
+    font-size: 10px; font-weight: 500; color: var(--ink-muted);
+    text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: 10px;
+  }
+
+  /* ─── Water card ─── */
+  .water-main {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .water-amount {
+    font-family: 'Instrument Serif', serif;
+    font-size: 38px; color: var(--ink); line-height: 1;
+  }
+  .water-amount span { font-size: 16px; color: var(--ink-muted); font-family: 'DM Sans', sans-serif; }
+  .water-goal { font-size: 11px; color: var(--ink-muted); }
+  .water-circle-wrap { position: relative; width: 72px; height: 72px; }
+  .water-circle-wrap svg { transform: rotate(-90deg); }
+  .water-circle-bg { fill: none; stroke: var(--blue-light); stroke-width: 5; }
+  .water-circle-fill {
+    fill: none; stroke: var(--blue); stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 188;
+    stroke-dashoffset: 188;
+    transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1);
+  }
+  .water-circle-icon {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .glasses-row {
+    display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .glass {
+    width: 32px; height: 38px;
+    border-radius: 6px 6px 8px 8px;
+    border: 1.5px solid var(--blue);
+    display: flex; align-items: flex-end; overflow: hidden;
+    cursor: pointer; transition: transform .15s;
+    position: relative;
+  }
+  .glass:active { transform: scale(0.92); }
+  .glass-fill {
+    width: 100%; background: var(--blue);
+    transition: height .4s cubic-bezier(.4,0,.2,1);
+  }
+  .glass.empty .glass-fill { height: 0; }
+  .glass.full .glass-fill { height: 100%; }
+  .water-btn {
+    width: 100%;
+    background: var(--blue-light);
+    border: 1.5px solid var(--blue);
+    border-radius: var(--radius-sm);
+    padding: 11px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; color: var(--blue);
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .water-btn:active { transform: scale(0.97); background: #D5E8F3; }
+
+  /* ─── Mood card ─── */
+  .mood-row {
+    display: flex; gap: 8px; justify-content: space-between;
+  }
+  .mood-btn {
+    flex: 1; aspect-ratio: 1;
+    background: var(--sand);
+    border: 1.5px solid var(--sand-dark);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; cursor: pointer;
+    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+  }
+  .mood-btn:active, .mood-btn.selected {
+    transform: scale(1.12);
+    border-color: var(--brown);
+    background: var(--amber-light);
+    box-shadow: 0 4px 12px rgba(196,154,74,0.2);
+  }
+
+  /* ─── Habits card ─── */
+  .habit-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--sand);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .habit-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .habit-item:first-child { padding-top: 0; }
+  .habit-cb {
+    width: 22px; height: 22px; border-radius: 7px; flex-shrink: 0;
+    border: 1.5px solid var(--brown-light);
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+  }
+  .habit-cb.done {
+    background: var(--green); border-color: var(--green-deep);
+    transform: scale(1.05);
+  }
+  .habit-cb-icon { font-size: 12px; opacity: 0; transition: opacity .15s; }
+  .habit-cb.done .habit-cb-icon { opacity: 1; }
+  .habit-name { font-size: 13px; color: var(--ink); flex: 1; }
+  .habit-name.done { color: var(--ink-muted); text-decoration: line-through; }
+  .habit-tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    background: var(--sand); color: var(--ink-muted);
+    font-weight: 500;
+  }
+
+  /* ─── Workout card ─── */
+  .workout-day-label {
+    font-size: 11px; color: var(--ink-muted); margin-bottom: 8px;
+  }
+  .workout-main {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .workout-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .workout-icon.dance { background: var(--rose-light); }
+  .workout-icon.run { background: var(--green-light); }
+  .workout-icon.rest { background: var(--amber-light); }
+  .workout-title { font-size: 15px; font-weight: 500; color: var(--ink); }
+  .workout-duration { font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+  .workout-done-btn {
+    margin-top: 12px; width: 100%;
+    background: var(--green-light);
+    border: 1.5px solid var(--green);
+    border-radius: var(--radius-sm);
+    padding: 11px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; color: var(--green-deep);
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .workout-done-btn.completed {
+    background: var(--green); color: white; border-color: var(--green-deep);
+  }
+  .workout-done-btn:active { transform: scale(0.97); }
+
+  /* ─── Weight card ─── */
+  .weight-row { display: flex; align-items: center; gap: 12px; }
+  .weight-big {
+    font-family: 'Instrument Serif', serif;
+    font-size: 42px; color: var(--ink); line-height: 1;
+  }
+  .weight-big span { font-size: 18px; color: var(--ink-muted); font-family: 'DM Sans', sans-serif; }
+  .weight-meta { flex: 1; }
+  .weight-change {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--green-light); color: var(--green-deep);
+    border-radius: 8px; padding: 4px 10px;
+    font-size: 12px; font-weight: 500;
+  }
+  .weight-goal-line {
+    font-size: 11px; color: var(--ink-muted); margin-top: 6px;
+  }
+  .mini-chart {
+    display: flex; align-items: flex-end; gap: 4px;
+    height: 40px; margin-top: 14px;
+  }
+  .mini-bar {
+    flex: 1; border-radius: 4px 4px 0 0;
+    background: var(--sand-dark);
+    transition: height .6s ease;
+  }
+  .mini-bar.latest { background: var(--brown); }
+
+  /* ─── Stats mini row ─── */
+  .stats-row { display: flex; gap: 8px; }
+  .stat-card {
+    flex: 1; background: var(--sand);
+    border-radius: var(--radius-sm);
+    padding: 12px; text-align: center;
+  }
+  .stat-val {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px; color: var(--ink);
+  }
+  .stat-lbl { font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
+
+  /* ─── Bottom nav ─── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(250,247,242,0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--sand-dark);
+    display: flex;
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    cursor: pointer; padding: 2px 0;
+    transition: all .2s;
+  }
+  .nav-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: all .2s cubic-bezier(.34,1.56,.64,1);
+  }
+  .nav-item.active .nav-icon {
+    background: var(--ink);
+    transform: scale(1.05);
+  }
+  .nav-item.active .nav-icon { filter: none; }
+  .nav-label {
+    font-size: 9px; font-weight: 500;
+    color: var(--ink-muted); letter-spacing: .03em;
+    transition: color .2s;
+  }
+  .nav-item.active .nav-label { color: var(--ink); }
+
+  /* ─── Page sections ─── */
+  .page { display: none; }
+  .page.active { display: flex; flex-direction: column; }
+
+  /* ─── Plan page ─── */
+  .week-grid { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .week-grid::-webkit-scrollbar { display: none; }
+  .day-pill {
+    flex-shrink: 0;
+    border: 1.5px solid var(--sand-dark);
+    border-radius: 14px; padding: 10px 12px;
+    text-align: center; cursor: pointer; transition: all .2s;
+    min-width: 56px;
+    background: var(--warm-white);
+  }
+  .day-pill.today {
+    background: var(--ink); border-color: var(--ink);
+  }
+  .day-pill.today .day-name, .day-pill.today .day-num { color: var(--cream); }
+  .day-name { font-size: 10px; font-weight: 500; color: var(--ink-muted); }
+  .day-num { font-size: 16px; font-weight: 500; color: var(--ink); margin-top: 2px; }
+  .day-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin: 4px auto 0; }
+  .day-dot.none { background: transparent; }
+
+  .plan-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--sand);
+  }
+  .plan-item:last-child { border-bottom: none; }
+  .plan-time { font-size: 11px; color: var(--ink-muted); min-width: 40px; }
+  .plan-icon { font-size: 20px; width: 36px; text-align: center; }
+  .plan-info { flex: 1; }
+  .plan-title { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .plan-sub { font-size: 11px; color: var(--ink-muted); }
+  .plan-status {
+    font-size: 11px; padding: 3px 8px; border-radius: 8px;
+    background: var(--sand); color: var(--ink-muted);
+  }
+  .plan-status.done { background: var(--green-light); color: var(--green-deep); }
+
+  /* ─── Nutrition page ─── */
+  .meal-card {
+    background: var(--warm-white);
+    border: 1px solid var(--sand-dark);
+    border-radius: var(--radius);
+    padding: 14px;
+    box-shadow: var(--shadow);
+    animation: fadeUp .45s ease both;
+  }
+  .meal-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .meal-time-badge {
+    background: var(--sand); border-radius: 8px;
+    padding: 3px 9px; font-size: 11px; color: var(--ink-muted); font-weight: 500;
+  }
+  .meal-name { font-size: 14px; font-weight: 500; color: var(--ink); }
+  .meal-kcal { font-size: 11px; color: var(--ink-muted); margin-left: auto; }
+  .food-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid var(--sand);
+    font-size: 12px; color: var(--ink);
+  }
+  .food-item:last-child { border-bottom: none; }
+  .food-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brown-light); flex-shrink: 0; }
+  .food-cal { font-size: 11px; color: var(--ink-muted); margin-left: auto; }
+  .kcal-bar-wrap { margin-top: 12px; }
+  .kcal-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-muted); margin-bottom: 5px; }
+  .kcal-bar { height: 6px; background: var(--sand); border-radius: 4px; overflow: hidden; }
+  .kcal-fill { height: 100%; background: var(--brown); border-radius: 4px; transition: width .8s ease; }
+
+  /* ─── Progress page ─── */
+  .progress-week {
+    display: flex; gap: 6px; align-items: flex-end; height: 80px;
+    margin-bottom: 8px;
+  }
+  .pw-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .pw-bar { width: 100%; border-radius: 5px 5px 0 0; background: var(--sand-dark); transition: height .6s ease; min-height: 4px; }
+  .pw-bar.filled { background: var(--brown); }
+  .pw-bar.today-bar { background: var(--amber); }
+  .pw-day { font-size: 9px; color: var(--ink-muted); }
+  .progress-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--sand);
+    font-size: 12px;
+  }
+  .progress-row:last-child { border-bottom: none; }
+  .pr-label { color: var(--ink-muted); display: flex; align-items: center; gap: 6px; }
+  .pr-val { font-weight: 500; color: var(--ink); }
+  .pr-bar-wrap { flex: 1; margin: 0 10px; height: 4px; background: var(--sand); border-radius: 2px; overflow: hidden; }
+  .pr-bar-fill { height: 100%; border-radius: 2px; background: var(--green); }
+
+  /* ─── Toast ─── */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--cream);
+    padding: 10px 20px; border-radius: 30px;
+    font-size: 13px; font-weight: 500;
+    opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none; white-space: nowrap; z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ─── Animations ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card:nth-child(1) { animation-delay: .05s; }
+  .card:nth-child(2) { animation-delay: .10s; }
+  .card:nth-child(3) { animation-delay: .15s; }
+  .card:nth-child(4) { animation-delay: .20s; }
+  .card:nth-child(5) { animation-delay: .25s; }
+
+  /* ─── Note input ─── */
+  .note-input {
+    width: 100%; background: var(--sand);
+    border: 1px solid var(--sand-dark); border-radius: var(--radius-sm);
+    padding: 10px 12px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; color: var(--ink); resize: none;
+    outline: none; margin-top: 8px;
+  }
+  .note-input::placeholder { color: var(--ink-muted); }
+  .note-input:focus { border-color: var(--brown-light); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- TOP BAR -->
+  <div class="topbar" id="topbar">
+    <div class="topbar-left">
+      <div class="topbar-greeting" id="greeting">Привет, Ира ✿</div>
+      <div class="topbar-date" id="dateLabel"></div>
+    </div>
+    <div class="streak-badge">
+      <span class="streak-fire">🔥</span>
+      <span id="streakCount">7 дней</span>
+    </div>
+  </div>
+
+  <!-- SCROLL CONTENT -->
+  <div class="scroll-area">
+
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+
+      <!-- Water -->
+      <div class="card">
+        <div class="card-label">Вода сегодня</div>
+        <div class="water-main">
+          <div>
+            <div class="water-amount" id="waterAmount">0 <span>мл</span></div>
+            <div class="water-goal" id="waterGoal">из 2000 мл · 0 из 8 стаканов</div>
+          </div>
+          <div class="water-circle-wrap">
+            <svg width="72" height="72" viewBox="0 0 72 72">
+              <circle class="water-circle-bg" cx="36" cy="36" r="30"/>
+              <circle class="water-circle-fill" id="waterCircle" cx="36" cy="36" r="30"/>
+            </svg>
+            <div class="water-circle-icon">💧</div>
+          </div>
+        </div>
+        <div class="glasses-row" id="glassesRow"></div>
+        <button class="water-btn" onclick="addWater()">
+          <span>+ стакан воды</span><span style="opacity:.6;font-size:12px">250 мл</span>
+        </button>
+      </div>
+
+      <!-- Mood -->
+      <div class="card">
+        <div class="card-label">Настроение</div>
+        <div class="mood-row">
+          <button class="mood-btn" onclick="setMood(0, this)" title="Устала">😴</button>
+          <button class="mood-btn" onclick="setMood(1, this)" title="Так себе">😕</button>
+          <button class="mood-btn" onclick="setMood(2, this)" title="Норм">😊</button>
+          <button class="mood-btn" onclick="setMood(3, this)" title="Хорошо">😄</button>
+          <button class="mood-btn" onclick="setMood(4, this)" title="Отлично">✨</button>
+        </div>
+      </div>
+
+      <!-- Habits -->
+      <div class="card">
+        <div class="card-label">Привычки</div>
+        <div id="habitsList">
+          <div class="habit-item" onclick="toggleHabit('vitamins_am', this)">
+            <div class="habit-cb" id="cb_vitamins_am"><span class="habit-cb-icon">✓</span></div>
+            <div class="habit-name" id="hn_vitamins_am">Витамины утром</div>
+            <div class="habit-tag">08:30</div>
+          </div>
+          <div class="habit-item" onclick="toggleHabit('vitamins_pm', this)">
+            <div class="habit-cb" id="cb_vitamins_pm"><span class="habit-cb-icon">✓</span></div>
+            <div class="habit-name" id="hn_vitamins_pm">Витамины вечером</div>
+            <div class="habit-tag">21:00</div>
+          </div>
+          <div class="habit-item" onclick="toggleHabit('steps', this)">
+            <div class="habit-cb" id="cb_steps"><span class="habit-cb-icon">✓</span></div>
+            <div class="habit-name" id="hn_steps">5000 шагов</div>
+            <div class="habit-tag">цель</div>
+          </div>
+          <div class="habit-item" onclick="toggleHabit('sleep', this)">
+            <div class="habit-cb" id="cb_sleep"><span class="habit-cb-icon">✓</span></div>
+            <div class="habit-name" id="hn_sleep">Лечь до 23:30</div>
+            <div class="habit-tag">сон</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workout of the day -->
+      <div class="card" id="workoutCard">
+        <div class="card-label">Тренировка дня</div>
+        <div class="workout-day-label" id="workoutDayLabel"></div>
+        <div class="workout-main">
+          <div class="workout-icon" id="workoutIcon"></div>
+          <div>
+            <div class="workout-title" id="workoutTitle"></div>
+            <div class="workout-duration" id="workoutDuration"></div>
+          </div>
+        </div>
+        <button class="workout-done-btn" id="workoutBtn" onclick="toggleWorkout()"></button>
+      </div>
+
+      <!-- Weight -->
+      <div class="card">
+        <div class="card-label">Вес</div>
+        <div class="weight-row">
+          <div>
+            <div class="weight-big" id="weightDisplay">74.3 <span>кг</span></div>
+            <div class="weight-change" id="weightChange">↓ −0.7 кг за месяц</div>
+          </div>
+          <div style="flex:1"></div>
+        </div>
+        <div class="weight-goal-line" id="weightGoalLine"></div>
+        <div class="mini-chart" id="miniChart"></div>
+        <textarea class="note-input" id="weightNote" placeholder="Записать новый вес… (напр. 74.1)" rows="1" onchange="logWeight(this.value)"></textarea>
+      </div>
+
+      <!-- Quick stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" id="statWorkouts">4</div>
+          <div class="stat-lbl">тренировок</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statWater">6</div>
+          <div class="stat-lbl">дней норма</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statStreak">7</div>
+          <div class="stat-lbl">дней подряд</div>
+        </div>
+      </div>
+
+    </div><!-- /page-home -->
+
+    <!-- PLAN PAGE -->
+    <div class="page" id="page-plan">
+      <div class="card">
+        <div class="card-label">Неделя</div>
+        <div class="week-grid" id="weekGrid"></div>
+      </div>
+      <div class="card" id="planDetail">
+        <div class="card-label" id="planDayTitle">Сегодня</div>
+        <div id="planItems"></div>
+      </div>
+    </div>
+
+    <!-- NUTRITION PAGE -->
+    <div class="page" id="page-nutrition">
+      <div class="card">
+        <div class="card-label">Калории дня</div>
+        <div class="kcal-bar-wrap">
+          <div class="kcal-meta">
+            <span>Сегодня ~1 380 ккал</span>
+            <span>цель: 1 600 ккал</span>
+          </div>
+          <div class="kcal-bar">
+            <div class="kcal-fill" style="width:86%"></div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--ink-muted)">
+          Дефицит ~220 ккал — отлично для мягкого снижения 🌿
+        </div>
+      </div>
+
+      <div class="meal-card">
+        <div class="meal-header">
+          <div class="meal-time-badge">Завтрак</div>
+          <div class="meal-name">Тёплое утро</div>
+          <div class="meal-kcal">~380 ккал</div>
+        </div>
+        <div class="food-item"><span class="food-dot"></span>Овсянка на воде с ягодами<span class="food-cal">280 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Яйцо варёное × 1<span class="food-cal">70 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Чай зелёный с мёдом<span class="food-cal">30 ккал</span></div>
+      </div>
+
+      <div class="meal-card">
+        <div class="meal-header">
+          <div class="meal-time-badge">Обед</div>
+          <div class="meal-name">Лёгкий и сытный</div>
+          <div class="meal-kcal">~480 ккал</div>
+        </div>
+        <div class="food-item"><span class="food-dot"></span>Куриная грудка 150 г<span class="food-cal">185 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Греча отварная 100 г<span class="food-cal">130 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Салат из огурца и зелени<span class="food-cal">45 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Суп овощной<span class="food-cal">120 ккал</span></div>
+      </div>
+
+      <div class="meal-card">
+        <div class="meal-header">
+          <div class="meal-time-badge">Ужин</div>
+          <div class="meal-name">Нежный вечер</div>
+          <div class="meal-kcal">~360 ккал</div>
+        </div>
+        <div class="food-item"><span class="food-dot"></span>Творог 5% 150 г<span class="food-cal">130 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Тушёные овощи 200 г<span class="food-cal">80 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Рыба запечённая 100 г<span class="food-cal">150 ккал</span></div>
+      </div>
+
+      <div class="meal-card">
+        <div class="meal-header">
+          <div class="meal-time-badge">Перекусы</div>
+          <div class="meal-name">Без чувства вины</div>
+          <div class="meal-kcal">~160 ккал</div>
+        </div>
+        <div class="food-item"><span class="food-dot"></span>Яблоко или груша<span class="food-cal">80 ккал</span></div>
+        <div class="food-item"><span class="food-dot"></span>Орехи 20 г<span class="food-cal">80 ккал</span></div>
+      </div>
+    </div>
+
+    <!-- PROGRESS PAGE -->
+    <div class="page" id="page-progress">
+
+      <div class="card">
+        <div class="card-label">Активность за неделю</div>
+        <div class="progress-week" id="progressWeek"></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink-muted)" id="progressDayLabels"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Прогресс привычек</div>
+        <div class="progress-row">
+          <span class="pr-label">💧 Вода</span>
+          <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:78%"></div></div>
+          <span class="pr-val">6/7</span>
+        </div>
+        <div class="progress-row">
+          <span class="pr-label">💊 Витамины</span>
+          <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:85%"></div></div>
+          <span class="pr-val">6/7</span>
+        </div>
+        <div class="progress-row">
+          <span class="pr-label">🏃 Тренировки</span>
+          <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:57%"></div></div>
+          <span class="pr-val">4/7</span>
+        </div>
+        <div class="progress-row">
+          <span class="pr-label">👟 Шаги</span>
+          <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:71%"></div></div>
+          <span class="pr-val">5/7</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Динамика веса</div>
+        <div style="display:flex;gap:6px;align-items:flex-end;height:60px;margin-bottom:6px" id="weightChart"></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink-muted)" id="weightChartLabels"></div>
+        <div style="margin-top:12px;background:var(--green-light);border-radius:10px;padding:10px;font-size:12px;color:var(--green-deep)">
+          За месяц: −0.7 кг · цель: −5 кг к осени 🌿
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Инсайт недели</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.6">
+          В дни бачаты твоё настроение на <strong>+1.4 балла</strong> выше среднего.<br>
+          Танцы работают лучше, чем кажется 💃
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--ink-muted)">
+          Ты не обязана быть идеальной. Главное — стабильность 💛
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /scroll-area -->
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchPage('home')">
+      <div class="nav-icon" style="color:var(--cream)">🏠</div>
+      <div class="nav-label">Главная</div>
+    </div>
+    <div class="nav-item" id="nav-plan" onclick="switchPage('plan')">
+      <div class="nav-icon">📅</div>
+      <div class="nav-label">План</div>
+    </div>
+    <div class="nav-item" id="nav-nutrition" onclick="switchPage('nutrition')">
+      <div class="nav-icon">🥗</div>
+      <div class="nav-label">Питание</div>
+    </div>
+    <div class="nav-item" id="nav-progress" onclick="switchPage('progress')">
+      <div class="nav-icon">📊</div>
+      <div class="nav-label">Прогресс</div>
+    </div>
+  </nav>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────
+const state = {
+  water: 0,         // ml
+  glasses: 0,
+  mood: -1,
+  habits: { vitamins_am: false, vitamins_pm: false, steps: false, sleep: false },
+  workoutDone: false,
+  weight: 74.3,
+  weightHistory: [75.8, 75.4, 75.1, 74.9, 74.6, 74.4, 74.3],
+  streak: 7,
+};
+
+// ─── Telegram init ───────────────────────────────────────
+if (window.Telegram && window.Telegram.WebApp) {
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+  document.documentElement.style.setProperty('--tg-color', tg.themeParams?.bg_color || '#FAF7F2');
+}
+
+// ─── Date & greeting ─────────────────────────────────────
+const DAYS_RU = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+const MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DAYS_SHORT = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+
+function initDate() {
+  const now = new Date();
+  document.getElementById('dateLabel').textContent =
+    DAYS_RU[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS_RU[now.getMonth()];
+}
+
+// ─── Water ───────────────────────────────────────────────
+const GLASSES_TOTAL = 8;
+
+function buildGlasses() {
+  const row = document.getElementById('glassesRow');
+  row.innerHTML = '';
+  for (let i = 0; i < GLASSES_TOTAL; i++) {
+    const g = document.createElement('div');
+    g.className = 'glass empty';
+    g.setAttribute('data-i', i);
+    g.onclick = () => setWaterToGlass(i + 1);
+    const fill = document.createElement('div');
+    fill.className = 'glass-fill';
+    fill.style.height = '0%';
+    g.appendChild(fill);
+    row.appendChild(g);
+  }
+  updateGlassesUI();
+}
+
+function updateGlassesUI() {
+  const glasses = document.querySelectorAll('.glass');
+  glasses.forEach((g, i) => {
+    const filled = i < state.glasses;
+    g.className = 'glass ' + (filled ? 'full' : 'empty');
+    g.querySelector('.glass-fill').style.height = filled ? '100%' : '0%';
+  });
+  const ml = state.glasses * 250;
+  state.water = ml;
+  document.getElementById('waterAmount').innerHTML = ml + ' <span>мл</span>';
+  document.getElementById('waterGoal').textContent =
+    'из 2000 мл · ' + state.glasses + ' из 8 стаканов';
+  // circle
+  const pct = Math.min(1, ml / 2000);
+  const circ = 188;
+  document.getElementById('waterCircle').style.strokeDashoffset =
+    circ - circ * pct;
+}
+
+function addWater() {
+  if (state.glasses >= GLASSES_TOTAL) { showToast('Норма выполнена! 🎉'); return; }
+  state.glasses++;
+  updateGlassesUI();
+  if (state.glasses === GLASSES_TOTAL) showToast('Норма воды выполнена! 💧');
+  else showToast('+250 мл · ' + state.glasses + ' из 8');
+}
+
+function setWaterToGlass(n) {
+  state.glasses = n;
+  updateGlassesUI();
+  showToast(state.glasses * 250 + ' мл выпито 💧');
+}
+
+// ─── Mood ─────────────────────────────────────────────────
+const MOOD_TEXTS = ['Устала — береги себя 🤍', 'Бывает. Завтра лучше 💛',
+  'Хорошо — продолжай! ✨', 'Отлично — заряд есть 🌟', 'Просто супер! ✨🌸'];
+
+function setMood(idx, el) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.mood = idx;
+  showToast(MOOD_TEXTS[idx]);
+}
+
+// ─── Habits ───────────────────────────────────────────────
+function toggleHabit(key, row) {
+  state.habits[key] = !state.habits[key];
+  const cb = document.getElementById('cb_' + key);
+  const hn = document.getElementById('hn_' + key);
+  if (state.habits[key]) {
+    cb.classList.add('done');
+    hn.classList.add('done');
+    const msgs = { vitamins_am: 'Витамины утром — готово! 💊', vitamins_pm: 'Вечерние витамины — молодец! 🌙', steps: '5000 шагов — отличная прогулка! 👟', sleep: 'Режим сна соблюдён — хорошего отдыха! 🌙' };
+    showToast(msgs[key]);
+  } else {
+    cb.classList.remove('done');
+    hn.classList.remove('done');
+  }
+}
+
+// ─── Workout ──────────────────────────────────────────────
+const WEEKLY_PLAN = {
+  1: { icon: '💃', type: 'dance', title: 'Бачата', duration: '20:00 · взять воду с собой' },
+  2: { icon: '🏃', type: 'run', title: 'Беговая дорожка', duration: '35 мин · спокойный темп' },
+  3: { icon: '💃', type: 'dance', title: 'Бачата', duration: '20:00 · наслаждайся 🎵' },
+  4: { icon: '🧘', type: 'run', title: 'Ходьба + core', duration: '15–20 мин дома' },
+  5: { icon: '🌿', type: 'rest', title: 'Отдых', duration: 'Или лёгкая прогулка на свежем воздухе' },
+  6: { icon: '🏃', type: 'run', title: 'Дорожка или танцы дома', duration: '30–40 мин в своём темпе' },
+  0: { icon: '☕', type: 'rest', title: 'Recovery day', duration: 'Растяжка, покой, забота о себе' },
+};
+
+function initWorkout() {
+  const dow = new Date().getDay();
+  const plan = WEEKLY_PLAN[dow];
+  document.getElementById('workoutDayLabel').textContent = DAYS_RU[dow];
+  document.getElementById('workoutIcon').textContent = plan.icon;
+  document.getElementById('workoutIcon').className = 'workout-icon ' + plan.type;
+  document.getElementById('workoutTitle').textContent = plan.title;
+  document.getElementById('workoutDuration').textContent = plan.duration;
+  updateWorkoutBtn();
+}
+
+function updateWorkoutBtn() {
+  const btn = document.getElementById('workoutBtn');
+  if (state.workoutDone) {
+    btn.className = 'workout-done-btn completed';
+    btn.textContent = '✓ Выполнено — молодец!';
+  } else {
+    btn.className = 'workout-done-btn';
+    btn.textContent = 'Отметить выполненной';
+  }
+}
+
+function toggleWorkout() {
+  state.workoutDone = !state.workoutDone;
+  updateWorkoutBtn();
+  if (state.workoutDone) showToast('Тренировка засчитана! 🌟');
+}
+
+// ─── Weight ───────────────────────────────────────────────
+function initWeight() {
+  document.getElementById('weightDisplay').innerHTML =
+    state.weight + ' <span>кг</span>';
+  document.getElementById('weightGoalLine').textContent =
+    'Цель: 65 кг · осталось ' + (state.weight - 65).toFixed(1) + ' кг';
+  buildMiniChart();
+}
+
+function buildMiniChart() {
+  const container = document.getElementById('miniChart');
+  container.innerHTML = '';
+  const max = Math.max(...state.weightHistory);
+  const min = Math.min(...state.weightHistory) - 1;
+  state.weightHistory.forEach((w, i) => {
+    const bar = document.createElement('div');
+    const h = Math.max(4, Math.round((w - min) / (max - min + 1) * 60));
+    bar.className = 'mini-bar' + (i === state.weightHistory.length - 1 ? ' latest' : '');
+    bar.style.height = h + 'px';
+    bar.title = w + ' кг';
+    container.appendChild(bar);
+  });
+}
+
+function logWeight(val) {
+  const kg = parseFloat(val.replace(',', '.'));
+  if (!isNaN(kg) && kg > 30 && kg < 200) {
+    const old = state.weight;
+    state.weight = kg;
+    state.weightHistory.push(kg);
+    if (state.weightHistory.length > 7) state.weightHistory.shift();
+    initWeight();
+    const diff = (kg - old).toFixed(1);
+    const sign = diff > 0 ? '+' : '';
+    showToast('Вес записан: ' + kg + ' кг (' + sign + diff + ')');
+    document.getElementById('weightNote').value = '';
+  }
+}
+
+// ─── Week plan ────────────────────────────────────────────
+const PLAN_SCHEDULE = {
+  1: [
+    { time: '08:00', icon: '💊', title: 'Витамины + вода', note: 'Утренняя привычка', status: 'done' },
+    { time: '19:00', icon: '💃', title: 'Напоминание: Бачата', note: 'Взять воду, удобная обувь', status: '' },
+    { time: '20:00', icon: '💃', title: 'Бачата', note: '~60–90 мин · весело!', status: '' },
+    { time: '21:00', icon: '🧘', title: 'Растяжка 10 мин', note: 'После танцев обязательно', status: '' },
+  ],
+  2: [
+    { time: '10:00', icon: '🏃', title: 'Беговая дорожка', note: '35 мин · спокойный темп', status: '' },
+    { time: '21:00', icon: '💊', title: 'Вечерние витамины', note: '', status: '' },
+  ],
+  3: [
+    { time: '19:00', icon: '💃', title: 'Напоминание: Бачата', note: '', status: '' },
+    { time: '20:00', icon: '💃', title: 'Бачата', note: 'Наслаждайся! 🎵', status: '' },
+  ],
+  4: [
+    { time: '10:00', icon: '🧘', title: 'Ходьба + core', note: '15–20 мин дома', status: '' },
+    { time: '21:00', icon: '💊', title: 'Вечерние витамины', note: '', status: '' },
+  ],
+  5: [
+    { time: 'весь день', icon: '🌿', title: 'День отдыха', note: 'Или лёгкая прогулка', status: '' },
+  ],
+  6: [
+    { time: '10:00', icon: '🏃', title: 'Дорожка или танцы', note: '30–40 мин', status: '' },
+  ],
+  0: [
+    { time: 'весь день', icon: '☕', title: 'Recovery day', note: 'Растяжка, покой, вкусная еда', status: '' },
+  ],
+};
+
+function initWeekPlan() {
+  const now = new Date();
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = '';
+  const today = now.getDay();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now); d.setDate(now.getDate() - today + i);
+    const dow = d.getDay();
+    const pill = document.createElement('div');
+    pill.className = 'day-pill' + (i === today ? ' today' : '');
+    pill.innerHTML = `<div class="day-name">${DAYS_SHORT[dow]}</div>
+      <div class="day-num">${d.getDate()}</div>
+      <div class="day-dot${PLAN_SCHEDULE[dow].length > 1 ? '' : ' none'}"></div>`;
+    pill.onclick = () => showDayPlan(dow, d);
+    grid.appendChild(pill);
+  }
+  showDayPlan(today, now);
+}
+
+function showDayPlan(dow, dateObj) {
+  document.getElementById('planDayTitle').textContent =
+    DAYS_RU[dow] + ', ' + dateObj.getDate() + ' ' + MONTHS_RU[dateObj.getMonth()];
+  const items = document.getElementById('planItems');
+  items.innerHTML = '';
+  PLAN_SCHEDULE[dow].forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'plan-item';
+    div.innerHTML = `<div class="plan-time">${item.time}</div>
+      <div class="plan-icon">${item.icon}</div>
+      <div class="plan-info">
+        <div class="plan-title">${item.title}</div>
+        ${item.note ? '<div class="plan-sub">' + item.note + '</div>' : ''}
+      </div>
+      <div class="plan-status${item.status === 'done' ? ' done' : ''}">${item.status === 'done' ? '✓ готово' : 'план'}</div>`;
+    items.appendChild(div);
+  });
+}
+
+// ─── Progress charts ──────────────────────────────────────
+function initProgress() {
+  const now = new Date();
+  const week = document.getElementById('progressWeek');
+  const dayLabels = document.getElementById('progressDayLabels');
+  week.innerHTML = ''; dayLabels.innerHTML = '';
+
+  const activity = [1, 1, 1, 0, 1, 1, 0]; // 1=done this week
+  const today = now.getDay();
+
+  for (let i = 1; i <= 7; i++) {
+    const dow = i % 7;
+    const isPast = i <= today;
+    const isTod = i === today;
+    const col = document.createElement('div');
+    col.className = 'pw-col';
+    const h = activity[dow] && isPast ? Math.floor(Math.random() * 30 + 40) : (isPast ? 8 : 4);
+    const cls = isTod ? 'today-bar' : (activity[dow] && isPast ? 'filled' : '');
+    col.innerHTML = `<div class="pw-bar ${cls}" style="height:${h}px"></div>`;
+    week.appendChild(col);
+    const lbl = document.createElement('span');
+    lbl.textContent = DAYS_SHORT[dow];
+    dayLabels.appendChild(lbl);
+  }
+
+  // Weight chart
+  const wc = document.getElementById('weightChart');
+  const wl = document.getElementById('weightChartLabels');
+  wc.innerHTML = ''; wl.innerHTML = '';
+  const wData = [75.8, 75.4, 75.1, 74.9, 74.6, 74.4, 74.3];
+  const wMin = 73.5, wMax = 76.5;
+  wData.forEach((w, i) => {
+    const h = Math.round((w - wMin) / (wMax - wMin) * 54) + 6;
+    const bar = document.createElement('div');
+    bar.style.cssText = `flex:1;border-radius:5px 5px 0 0;background:${i===6?'var(--brown)':'var(--sand-dark)'};height:${h}px;transition:height .6s`;
+    wc.appendChild(bar);
+    const lbl = document.createElement('span');
+    const d = new Date(); d.setDate(d.getDate() - 6 + i);
+    lbl.textContent = d.getDate() + '/' + (d.getMonth() + 1);
+    wl.appendChild(lbl);
+  });
+}
+
+// ─── Navigation ───────────────────────────────────────────
+let currentPage = 'home';
+
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+
+  // Fix nav icon color on active
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.querySelector('.nav-icon').style.color = '';
+    n.querySelector('.nav-icon').style.background = '';
+  });
+  const activeNav = document.getElementById('nav-' + page);
+  activeNav.querySelector('.nav-icon').style.background = 'var(--ink)';
+  activeNav.querySelector('.nav-icon').style.color = 'var(--cream)';
+
+  currentPage = page;
+  if (page === 'plan') initWeekPlan();
+  if (page === 'progress') initProgress();
+
+  // Update topbar
+  const titles = { home: null, plan: 'Мой план', nutrition: 'Питание', progress: 'Прогресс' };
+  if (titles[page]) {
+    document.getElementById('greeting').textContent = titles[page];
+  } else {
+    document.getElementById('greeting').innerHTML = 'Привет, Ира ✿';
+  }
+}
+
+// ─── Toast ────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── Init ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initDate();
+  buildGlasses();
+  initWorkout();
+  initWeight();
+
+  // Set initial nav state
+  document.getElementById('nav-home').querySelector('.nav-icon').style.background = 'var(--ink)';
+  document.getElementById('nav-home').querySelector('.nav-icon').style.color = 'var(--cream)';
+});
+</script>
+</body>
+</html>
