@@ -80,7 +80,7 @@ def magnesium_kb():
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone="Asia/Almaty")
 
 @dp.message(CommandStart())
 async def cmd_start(msg: Message):
