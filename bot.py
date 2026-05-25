@@ -84,16 +84,23 @@ scheduler = AsyncIOScheduler(timezone="Asia/Almaty")
 
 @dp.message(CommandStart())
 async def cmd_start(msg: Message):
+    from aiogram.types import WebAppInfo
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="🌿 Открыть Bloom",
+            web_app=WebAppInfo(url="https://bloom-bot-beta.vercel.app")
+        )
+    ]])
     await msg.answer(
         "Привет, Айдана! 🌿\n\n"
-        "Я твой wellness-помощник Bloom.\n\n"
         "Команды:\n"
         "/today — сводка дня\n"
         "/water — добавить стакан воды\n"
         "/steps 4500 — записать шаги\n"
         "/weight 74.5 — записать вес\n"
         "/checkin — вечерний чекин\n"
-        "/week — статистика за неделю"
+        "/week — статистика за неделю",
+        reply_markup=kb
     )
 
 @dp.message(Command("water"))
